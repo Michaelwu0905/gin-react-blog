@@ -1,0 +1,40 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch: # 允许你在 GitHub 网页上手动触发
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 拉取代码
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. 登录 Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 3. 构建并推送 后端 镜像
+      - name: Build and Push Backend
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend # Dockerfile 所在的目录
+          file: ./backend/Dockerfile
+          push: true
+          # 镜像标签：用户名/仓库名:latest
+          tags: ${{ secrets.DOCKER_USERNAME }}/my-blog-backend:latest
+
+      # 4. 构建并推送 前端 镜像
+      - name: Build and Push Frontend
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend # Dockerfile 所在的目录
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/my-blog-frontend:latest

@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # 1. 数据库服务
+  db:
+    image: mysql:8.0
+    container_name: blog-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456  # 生产环境请勿使用简单密码
+      MYSQL_DATABASE: blog_db
+    volumes:
+      - db_data:/var/lib/mysql       # 数据持久化，防止重启丢失数据
+    networks:
+      - blog-network
+
+  # 2. 后端服务 (Gin)
+  backend:
+    build: ./backend                 # 指向后端 Dockerfile 所在目录
+    container_name: blog-backend
+    restart: always
+    depends_on:
+      - db                           # 等待数据库启动
+    environment:
+      # 这里的 host 必须填数据库的服务名 'db'，不能填 localhost
+      DB_HOST: db                    
+      DB_USER: root
+      DB_PASSWORD: 123456
+      DB_NAME: blog_db
+      DB_PORT: 3306
+    networks:
+      - blog-network
+    # 注意：后端端口不需要映射到宿主机，只需要暴露给内部网络即可
+    # 如果你想在本地调试后端，可以取消下面注释
+    # ports:
+    #   - "8080:8080"
+
+  # 3. 前端服务 (React + Nginx)
+  frontend:
+    build: ./frontend                # 指向前端 Dockerfile 所在目录
+    container_name: blog-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"                      # 将容器的 80 端口映射到电脑的 80 端口
+    networks:
+      - blog-network
+
+# 定义网络，让容器之间可以通过服务名互访
+networks:
+  blog-network:
+    driver: bridge
+
+# 定义数据卷
+volumes:
+  db_data:

@@ -11,7 +11,7 @@ const CreatePost = () => {
     e.preventDefault();
     try {
       await apiClient.post('/posts', { title, content });
-      navigate('/'); // 成功后跳转回首页
+      navigate('/'); 
     } catch (error) {
       alert('发布失败');
       console.error(error);
@@ -19,25 +19,36 @@ const CreatePost = () => {
   };
 
   return (
-    <div>
-      <h2>发布新文章</h2>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', maxWidth: '400px' }}>
+    <div style={{ maxWidth: '100%', height: '100%' }}>
+      <div style={{ marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '5px', fontSize: '12px', color: '#333' }}>
+        <span style={{ marginRight: '10px' }}>文件(F)</span>
+        <span style={{ marginRight: '10px' }}>编辑(E)</span>
+        <span style={{ marginRight: '10px' }}>格式(O)</span>
+        <span style={{ marginRight: '10px' }}>查看(V)</span>
+        <span style={{ marginRight: '10px' }}>帮助(H)</span>
+      </div>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <input 
+          className="xp-input"
           type="text" 
-          placeholder="标题" 
+          placeholder="无标题 - 记事本" 
           value={title} 
           onChange={e => setTitle(e.target.value)} 
-          style={{ marginBottom: '10px', padding: '8px' }}
+          style={{ width: '100%', border: 'none', borderBottom: '1px solid #eee', fontSize: '16px', outline: 'none' }}
           required
         />
         <textarea 
-          placeholder="内容" 
+          className="xp-textarea"
+          placeholder="在此输入内容..."
           value={content} 
           onChange={e => setContent(e.target.value)} 
-          style={{ marginBottom: '10px', padding: '8px', minHeight: '100px' }}
+          style={{ width: '100%', minHeight: '300px', border: 'none', outline: 'none', resize: 'none', fontSize: '14px', fontFamily: 'monospace' }}
           required
         />
-        <button type="submit" style={{ padding: '10px', cursor: 'pointer' }}>提交</button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '10px', borderTop: '1px solid #eee', background: '#f5f5f5' }}>
+          <button type="submit" className="xp-button">保存(S)</button>
+          <button type="button" className="xp-button" onClick={() => navigate('/')}>取消</button>
+        </div>
       </form>
     </div>
   );

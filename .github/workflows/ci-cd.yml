@@ -71,7 +71,7 @@ jobs:
               --network blog-network \
               -e DB_HOST=blog-db \
               -e DB_USER=root \
-              -e DB_PASSWORD=your_real_db_password \
+              -e DB_PASSWORD=Leahc1misM1chael \
               -e DB_NAME=blog_db \
               ${{ secrets.DOCKER_USERNAME }}/my-blog-backend:latest
 

@@ -2,6 +2,7 @@ package routes
 
 import (
 	"my-blog-backend/controllers"
+	"my-blog-backend/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,11 +20,34 @@ func SetupRouter() *gin.Engine {
 
 	api := r.Group("api")
 	{
+		// 认证相关路由（公开）
+		auth := api.Group("/auth")
+		{
+			auth.POST("/register", controllers.Register)
+			auth.POST("/login", controllers.Login)
+			auth.GET("/me", middleware.AuthRequired(), controllers.GetMe)
+		}
+
+		// 文章相关路由
+		// 公开接口
 		api.GET("/posts", controllers.GetPosts)
-		api.POST("/posts", controllers.CreatePost)
 		api.GET("/posts/:id", controllers.GetPostById)
-		// 图片上传接口
-		api.POST("/upload", controllers.UploadImage)
+
+		// 需要认证的接口
+		authPosts := api.Group("/posts")
+		authPosts.Use(middleware.AuthRequired())
+		{
+			authPosts.POST("", controllers.CreatePost)
+			authPosts.PUT("/:id", controllers.UpdatePost)
+			authPosts.DELETE("/:id", controllers.DeletePost)
+		}
+
+		// 获取当前用户的文章
+		api.GET("/my-posts", middleware.AuthRequired(), controllers.GetMyPosts)
+
+		// 图片上传接口（需要认证）
+		api.POST("/upload", middleware.AuthRequired(), controllers.UploadImage)
 	}
+
 	return r
 }

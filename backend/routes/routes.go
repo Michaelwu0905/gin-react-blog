@@ -14,11 +14,16 @@ func SetupRouter() *gin.Engine {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
 
+	// 配置静态文件服务，用于访问上传的图片
+	r.Static("/uploads", "./uploads")
+
 	api := r.Group("api")
 	{
 		api.GET("/posts", controllers.GetPosts)
 		api.POST("/posts", controllers.CreatePost)
 		api.GET("/posts/:id", controllers.GetPostById)
+		// 图片上传接口
+		api.POST("/upload", controllers.UploadImage)
 	}
 	return r
 }

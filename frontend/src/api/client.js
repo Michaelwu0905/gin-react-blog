@@ -10,4 +10,18 @@ const apiClient = axios.create({
     },
 });
 
+// 图片上传函数
+export const uploadImage = async (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    const response = await axios.post('/api/upload', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+    
+    return response.data.url;
+};
+
 export default apiClient

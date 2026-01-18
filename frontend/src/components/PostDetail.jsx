@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { MdPreview } from 'md-editor-rt';
+import 'md-editor-rt/lib/preview.css';
 import apiClient from '../api/client';
 
 const PostDetail = () => {
@@ -40,8 +42,11 @@ const PostDetail = () => {
         <div style={{ color: '#666', fontSize: '11px', marginBottom: '20px', borderBottom: '1px solid #ccc', paddingBottom: '5px' }}>
           发布时间: {new Date(post.created_at).toLocaleString()} | 归档: 我的文档
         </div>
-        <div style={{ lineHeight: '1.6', fontSize: '14px', whiteSpace: 'pre-wrap', color: '#333' }}>
-          {post.content}
+        <div className="markdown-body">
+          <MdPreview
+            modelValue={post.content}
+            language="zh-CN"
+          />
         </div>
         
         <div style={{ marginTop: '50px', textAlign: 'center' }}>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PostList from './components/PostList';
@@ -25,6 +26,11 @@ const ProtectedRoute = ({ children }) => {
 const Layout = ({ children }) => {
   const location = useLocation();
   const { user, logout, isAuthenticated } = useAuth();
+  const [isMaximized, setIsMaximized] = useState(false);
+  
+  const toggleMaximize = () => {
+    setIsMaximized(!isMaximized);
+  };
   
   const getTitle = () => {
     if (location.pathname === '/') return '我的博客 - 资源管理器';
@@ -38,7 +44,7 @@ const Layout = ({ children }) => {
 
   return (
     <>
-      <div className="xp-window">
+      <div className={`xp-window ${isMaximized ? 'maximized' : ''}`}>
         <div className="xp-title-bar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <span style={{ fontSize: '14px' }}>📂</span>
@@ -46,7 +52,13 @@ const Layout = ({ children }) => {
           </div>
           <div className="xp-title-controls">
             <div className="xp-title-btn xp-btn-min">_</div>
-            <div className="xp-title-btn xp-btn-max">□</div>
+            <div 
+              className="xp-title-btn xp-btn-max" 
+              onClick={toggleMaximize}
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+            >
+              {isMaximized ? '❐' : '□'}
+            </div>
             <div className="xp-title-btn xp-btn-close">×</div>
           </div>
         </div>

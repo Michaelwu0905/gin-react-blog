@@ -65,6 +65,16 @@ body {
   flex-direction: column;
   position: relative;
   max-height: calc(100vh - 80px);
+  transition: all 0.3s ease;
+}
+
+.xp-window.maximized {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  border-radius: 0;
+  max-height: calc(100vh - 30px);
+  box-shadow: none;
 }
 
 .xp-title-bar {

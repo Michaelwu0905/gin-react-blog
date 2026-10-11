@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/useAuth';
 import PostList from './components/PostList';
 import CreatePost from './components/CreatePost';
 import PostDetail from './components/PostDetail';

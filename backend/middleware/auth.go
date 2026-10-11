@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log"
 	"my-blog-backend/config"
 	"my-blog-backend/models"
 	"net/http"
@@ -18,6 +19,9 @@ var jwtSecret = []byte(getJWTSecret())
 func getJWTSecret() string {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
+		if os.Getenv("GIN_MODE") == "release" {
+			log.Fatal("生产环境必须配置 JWT_SECRET")
+		}
 		secret = "my-blog-secret-key-2024" // 默认密钥，仅开发使用
 	}
 	return secret

@@ -3,12 +3,16 @@ package routes
 import (
 	"my-blog-backend/controllers"
 	"my-blog-backend/middleware"
+	"my-blog-backend/monitoring"
 
 	"github.com/gin-gonic/gin"
 )
 
 func SetupRouter() *gin.Engine {
-	r := gin.Default()
+	metrics := monitoring.NewHTTPMetrics()
+	r := gin.New()
+	r.Use(gin.Logger(), metrics.Middleware(), gin.Recovery())
+	r.GET("/metrics", gin.WrapH(metrics.Handler()))
 
 	// 简单的健康检查接口
 	r.GET("/ping", func(c *gin.Context) {
@@ -20,6 +24,7 @@ func SetupRouter() *gin.Engine {
 
 	api := r.Group("api")
 	{
+		api.GET("/readyz", controllers.Ready)
 		// 认证相关路由（公开）
 		auth := api.Group("/auth")
 		{

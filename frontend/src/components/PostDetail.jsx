@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MdPreview } from 'md-editor-rt';
 import 'md-editor-rt/lib/preview.css';
 import apiClient from '../api/client';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 
 const PostDetail = () => {
   const { id } = useParams();

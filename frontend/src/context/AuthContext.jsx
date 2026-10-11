@@ -1,15 +1,6 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
-
-const AuthContext = createContext(null);
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+import { AuthContext } from './authContextValue';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -25,7 +16,7 @@ export const AuthProvider = ({ children }) => {
           const response = await apiClient.get('/auth/me');
           setUser(response.data.user);
           setToken(savedToken);
-        } catch (error) {
+        } catch {
           // Token 无效，清除
           localStorage.removeItem('token');
           setToken(null);
@@ -97,5 +88,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
-export default AuthContext;

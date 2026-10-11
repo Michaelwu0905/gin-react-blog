@@ -2,8 +2,24 @@
 set -Eeuo pipefail
 umask 077
 root=/opt/gin-react-blog
+registry_config=""
+archive=""
+cleanup() {
+  if [[ -n $registry_config ]]; then rm -rf "$registry_config"; fi
+  if [[ -n $archive ]]; then rm -f "$archive"; fi
+}
+trap cleanup EXIT
+login_registry() {
+  IFS= read -r registry_token
+  [[ -n $registry_token && ${#registry_token} -lt 1024 ]] || exit 2
+  registry_config=$(mktemp -d)
+  export DOCKER_CONFIG=$registry_config
+  printf '%s' "$registry_token" | docker login ghcr.io --username michaelwu0905 --password-stdin >/dev/null
+  unset registry_token
+}
 if [[ ${SSH_ORIGINAL_COMMAND:-} =~ ^images\ ([a-f0-9]{40})$ ]]; then
   sha=${BASH_REMATCH[1]}
+  login_registry
   prefix=ghcr.io/michaelwu0905/gin-react-blog
   for image in "$prefix-backend:$sha" "$prefix-frontend:$sha" "$prefix-mysql:8.0" "$prefix-prometheus:v3.15.0" "$prefix-grafana:13.2.3"; do
     if ! docker image inspect "$image" >/dev/null 2>&1; then
@@ -17,15 +33,8 @@ if [[ ${SSH_ORIGINAL_COMMAND:-} =~ ^deploy\ ([a-f0-9]{40})$ ]]; then sha=${BASH_
   echo "Only deploy/images <commit SHA> is allowed." >&2
   exit 2
 fi
-IFS= read -r registry_token
-[[ -n $registry_token && ${#registry_token} -lt 1024 ]] || exit 2
-registry_config=$(mktemp -d)
+login_registry
 archive=$(mktemp)
-cleanup() { rm -rf "$registry_config"; rm -f "$archive"; }
-trap cleanup EXIT
-export DOCKER_CONFIG=$registry_config
-printf '%s' "$registry_token" | docker login ghcr.io --username michaelwu0905 --password-stdin
-unset registry_token
 cat >"$archive"
 [[ $(stat -c %s "$archive") -lt 2147483648 ]] || exit 2
 python3 - "$archive" "$root/releases/$sha" <<'PY'

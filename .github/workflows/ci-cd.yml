@@ -122,7 +122,7 @@ jobs:
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           trap 'rm -f ~/.ssh/blog_deploy' EXIT
           ssh_options=(-i ~/.ssh/blog_deploy -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15)
-          missing=$(ssh "${ssh_options[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "images $GITHUB_SHA")
+          missing=$(printf '%s\n' "$GHCR_TOKEN" | ssh "${ssh_options[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "images $GITHUB_SHA")
           mkdir images
           if [[ -n "$missing" ]]; then
             printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin

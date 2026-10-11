@@ -79,6 +79,21 @@ jobs:
               docker push "$destination"
             fi
           done
+      - name: Export bootstrap images for domestic transfer
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -Eeuo pipefail
+          prefix=ghcr.io/michaelwu0905/gin-react-blog
+          images=("$prefix-backend:$GITHUB_SHA" "$prefix-frontend:$GITHUB_SHA" "$prefix-mysql:8.0" "$prefix-prometheus:v3.15.0" "$prefix-grafana:13.2.3")
+          for image in "${images[@]}"; do docker pull --platform linux/amd64 "$image"; done
+          docker save "${images[@]}" | gzip -1 > bootstrap-images.tar.gz
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: bootstrap-images
+          path: bootstrap-images.tar.gz
+          retention-days: 1
+          compression-level: 0
   deploy:
     if: github.event_name != 'pull_request'
     needs: publish

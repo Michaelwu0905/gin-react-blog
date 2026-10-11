@@ -6,7 +6,10 @@ if [[ ${SSH_ORIGINAL_COMMAND:-} =~ ^images\ ([a-f0-9]{40})$ ]]; then
   sha=${BASH_REMATCH[1]}
   prefix=ghcr.io/michaelwu0905/gin-react-blog
   for image in "$prefix-backend:$sha" "$prefix-frontend:$sha" "$prefix-mysql:8.0" "$prefix-prometheus:v3.15.0" "$prefix-grafana:13.2.3"; do
-    if ! docker image inspect "$image" >/dev/null 2>&1; then printf '%s\n' "$image"; fi
+    if ! docker image inspect "$image" >/dev/null 2>&1; then
+      # A new SHA may reference layers already present after a merge-only change.
+      if ! timeout 20 docker pull --quiet "$image" >/dev/null 2>&1; then printf '%s\n' "$image"; fi
+    fi
   done
   exit 0
 fi

@@ -8,6 +8,8 @@ PR 执行 Go 测试、前端 lint/build、Docker 构建校验。合并 `main` �
 
 服务器只允许该 key 执行 `deploy <40位SHA>` 和只读镜像盘点 `images <40位SHA>`，不允许交互 shell、端口转发或任意命令。服务器 GHCR 分层下载实测较慢，因此 CI 从 GHCR 拉取缺失镜像，通过 SSH 压缩传输、导入后删除临时镜像包；以后通常只传新版本的两个应用镜像。GHCR 使用本次 Actions 的临时令牌，退出即删除 Docker 登录配置。主机日常 SSH key 保持不变。
 
+注意：GitHub Runner 直连服务器同样受到跨境链路限速，直传不是国内加速方案。首次部署可下载手动发布产生的 `bootstrap-images` 构建产物（仅镜像，不含生产 `.env`），通过国内网络 SCP 后 `docker load` 引导；长期应把镜像仓库切换到腾讯云 TCR，并使用国内 runner 或直接从 TCR 拉取。未配置 TCR 时，大改动发布可能较慢。
+
 镜像先拉取再替换应用，数据库独立持久化。后端 `/api/readyz` 检查数据库连接；应用启动或 HTTPS 就绪验证失败会尝试恢复上一版应用镜像。当前与上一版本记录位于 `current-release` / `previous-release`。单副本发布可能有短暂中断，数据库自动迁移不支持自动降级。
 
 ## 服务器目录

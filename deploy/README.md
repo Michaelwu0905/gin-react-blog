@@ -10,6 +10,8 @@ PR 执行 Go 测试、前端 lint/build、Docker 构建校验。合并 `main` �
 
 注意：GitHub Runner 直连服务器同样受到跨境链路限速，直传不是国内加速方案。首次部署可在手动发布时开启 `export_bootstrap`，下载生成的 `bootstrap-images` 构建产物（仅镜像，不含生产 `.env`），通过国内网络 SCP 后 `docker load` 引导；长期应把镜像仓库切换到腾讯云 TCR，并使用国内 runner 或直接从 TCR 拉取。未配置 TCR 时，大改动发布可能较慢。
 
+每次镜像发布也会保留一天 `application-images` 构建产物，包含该 SHA 的前后端镜像，不含数据库/监控镜像或生产配置。跨境下载过慢时，可取消当前部署、从 Actions 下载这个小型产物，经国内 SCP 后 `docker load`，再重新运行 deploy job；服务器缓存命中后不再传完整镜像包。构建产物只用于网络故障兜底，不替代正常自动发布。
+
 镜像先拉取再替换应用，数据库独立持久化。后端 `/api/readyz` 检查数据库连接；应用启动或 HTTPS 就绪验证失败会尝试恢复上一版应用镜像。当前与上一版本记录位于 `current-release` / `previous-release`。单副本发布可能有短暂中断，数据库自动迁移不支持自动降级。
 
 ## 服务器目录

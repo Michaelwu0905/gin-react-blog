@@ -6,7 +6,7 @@
 
 PR 执行 Go 测试、前端 lint/build、Docker 构建校验。合并 `main` 后构建 Linux amd64 镜像，以完整 commit SHA 推送 GHCR，使用 `production` 环境中的受限 SSH key 部署。手动 `workflow_dispatch` 也可发布指定分支。
 
-服务器只允许该 key 执行 `deploy <40位SHA>`，不允许交互 shell、端口转发或任意命令。GHCR 使用本次 Actions 的临时令牌，退出即删除 Docker 登录配置。主机日常 SSH key 保持不变。
+服务器只允许该 key 执行 `deploy <40位SHA>` 和只读镜像盘点 `images <40位SHA>`，不允许交互 shell、端口转发或任意命令。服务器 GHCR 分层下载实测较慢，因此 CI 从 GHCR 拉取缺失镜像，通过 SSH 压缩传输、导入后删除临时镜像包；以后通常只传新版本的两个应用镜像。GHCR 使用本次 Actions 的临时令牌，退出即删除 Docker 登录配置。主机日常 SSH key 保持不变。
 
 镜像先拉取再替换应用，数据库独立持久化。后端 `/api/readyz` 检查数据库连接；应用启动或 HTTPS 就绪验证失败会尝试恢复上一版应用镜像。当前与上一版本记录位于 `current-release` / `previous-release`。单副本发布可能有短暂中断，数据库自动迁移不支持自动降级。
 

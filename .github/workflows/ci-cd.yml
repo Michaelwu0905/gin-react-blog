@@ -1,83 +1,140 @@
-name: Build and Push Docker Images
-
+name: Test, Publish and Deploy
 on:
+  pull_request:
   push:
-    branches: ["main"]
-  workflow_dispatch: # 允许你在 GitHub 网页上手动触发
-
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      export_bootstrap:
+        description: Export full image bundle for first-time domestic transfer
+        type: boolean
+        default: false
+permissions:
+  contents: read
 jobs:
-  build-and-push:
+  test:
     runs-on: ubuntu-latest
     steps:
-      # 1. 拉取代码
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      # 2. 登录 Docker Hub
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      # 3. 构建并推送 后端 镜像
-      - name: Build and Push Backend
-        uses: docker/build-push-action@v4
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - run: go test ./...
+        working-directory: backend
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          context: ./backend # Dockerfile 所在的目录
-          file: ./backend/Dockerfile
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run lint && npm run build
+        working-directory: frontend
+      - run: bash -n deploy/deploy.sh deploy/ssh-deploy.sh
+      - name: Validate Dockerfiles on pull requests
+        if: github.event_name == 'pull_request'
+        run: |
+          docker build --platform linux/amd64 -t blog-ci-backend backend
+          docker build --platform linux/amd64 -t blog-ci-frontend frontend
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish backend
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: backend
+          platforms: linux/amd64
           push: true
-          # 镜像标签：用户名/仓库名:latest
-          tags: ${{ secrets.DOCKER_USERNAME }}/my-blog-backend:latest
-
-      # 4. 构建并推送 前端 镜像
-      - name: Build and Push Frontend
-        uses: docker/build-push-action@v4
+          tags: ghcr.io/michaelwu0905/gin-react-blog-backend:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/Michaelwu0905/gin-react-blog
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+      - name: Publish frontend
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
-          context: ./frontend # Dockerfile 所在的目录
-          file: ./frontend/Dockerfile
+          context: frontend
+          platforms: linux/amd64
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/my-blog-frontend:latest
-
+          tags: ghcr.io/michaelwu0905/gin-react-blog-frontend:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/Michaelwu0905/gin-react-blog
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+      - name: Mirror infrastructure images
+        run: |
+          set -Eeuo pipefail
+          for pair in 'mysql:8.0 mysql:8.0' 'prom/prometheus:v3.15.0 prometheus:v3.15.0' 'grafana/grafana:13.2.3 grafana:13.2.3'; do
+            read -r source target <<< "$pair"
+            destination="ghcr.io/michaelwu0905/gin-react-blog-$target"
+            if ! docker manifest inspect "$destination" >/dev/null 2>&1; then
+              docker pull --platform linux/amd64 "$source"
+              docker tag "$source" "$destination"
+              docker push "$destination"
+            fi
+          done
+      - name: Export bootstrap images for domestic transfer
+        if: github.event_name == 'workflow_dispatch' && inputs.export_bootstrap
+        run: |
+          set -Eeuo pipefail
+          prefix=ghcr.io/michaelwu0905/gin-react-blog
+          images=("$prefix-backend:$GITHUB_SHA" "$prefix-frontend:$GITHUB_SHA" "$prefix-mysql:8.0" "$prefix-prometheus:v3.15.0" "$prefix-grafana:13.2.3")
+          for image in "${images[@]}"; do docker pull --platform linux/amd64 "$image"; done
+          docker save "${images[@]}" | gzip -1 > bootstrap-images.tar.gz
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name == 'workflow_dispatch' && inputs.export_bootstrap
+        with:
+          name: bootstrap-images
+          path: bootstrap-images.tar.gz
+          retention-days: 1
+          compression-level: 0
   deploy:
-    needs: build-and-push # 必须等构建成功才部署
+    if: github.event_name != 'pull_request'
+    needs: publish
     runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    concurrency:
+      group: blog-production
+      cancel-in-progress: false
     steps:
-      - name: Deploy to Server
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # 下面是在服务器上执行的脚本
-          script: |
-            # 1. 停止并删除旧容器 (如果存在)
-            docker stop blog-backend blog-frontend || true
-            docker rm blog-backend blog-frontend || true
-
-            # 2. 拉取刚才构建的最新镜像
-            docker pull ${{ secrets.DOCKER_USERNAME }}/my-blog-backend:latest
-            docker pull ${{ secrets.DOCKER_USERNAME }}/my-blog-frontend:latest
-
-            # 3. 创建网络 (如果不存在)
-            docker network create blog-network || true
-
-            # 4. 启动数据库 (如果数据库是独立部署的，这里可以省略，或者确保它已经在运行)
-            # 建议数据库不要每次 CI/CD 都重启，最好手动在服务器上 docker run 一次mysql即可
-
-            # 5. 启动后端
-            docker run -d \
-              --name blog-backend \
-              --network blog-network \
-              -e DB_HOST=blog-db \
-              -e DB_USER=root \
-              -e DB_PASSWORD=Leahc1misM1chael \
-              -e DB_NAME=blog_db \
-              ${{ secrets.DOCKER_USERNAME }}/my-blog-backend:latest
-
-            # 6. 启动前端 (映射 80 端口)
-            docker run -d \
-              --name blog-frontend \
-              --network blog-network \
-              -p 80:80 \
-              ${{ secrets.DOCKER_USERNAME }}/my-blog-frontend:latest
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Deploy exact release
+        env:
+          DEPLOY_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/blog_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          trap 'rm -f ~/.ssh/blog_deploy' EXIT
+          ssh_options=(-i ~/.ssh/blog_deploy -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15)
+          missing=$(printf '%s\n' "$GHCR_TOKEN" | ssh "${ssh_options[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "images $GITHUB_SHA")
+          mkdir images
+          if [[ -n "$missing" ]]; then
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+            mapfile -t image_names <<< "$missing"
+            for image in "${image_names[@]}"; do docker pull --platform linux/amd64 "$image"; done
+            docker save "${image_names[@]}" > images/delivery.tar
+          fi
+          { printf '%s\n' "$GHCR_TOKEN"; tar -cf - deploy monitoring images | gzip -1; } |
+            ssh "${ssh_options[@]}" \
+              "$DEPLOY_USER@$DEPLOY_HOST" "deploy $GITHUB_SHA"

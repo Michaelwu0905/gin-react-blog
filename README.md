@@ -37,6 +37,8 @@
 - MySQL 8.0
 - Docker & Docker Compose
 - Nginx (生产环境反向代理)
+- Prometheus（指标采集与存储）
+- Grafana（基础监控面板）
 
 ---
 
@@ -95,7 +97,7 @@ gin-react-blog/
 - 用户注册与登录（JWT Token 认证）
 - 角色权限控制（普通用户 / 管理员）
 - 第一个注册的用户自动成为管理员
-- 默认管理员账户：admin / admin123
+- 使用 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 配置首次初始化的管理员；不再内置默认密码
 
 ### 文章管理
 - Markdown 编辑器（支持实时预览）
@@ -128,6 +130,8 @@ cd gin-react-blog
 
 2. 启动服务
 
+首次启动前，将 `.env.example` 复制为 `.env`，填写 Grafana 管理员密码。完整说明见 [基础监控指南](monitoring/README.md)。
+
 ```bash
 docker-compose up -d --build
 ```
@@ -135,7 +139,9 @@ docker-compose up -d --build
 3. 访问应用
 
 - 前端界面: http://localhost
-- 默认管理员: admin / admin123
+- 管理员: 使用初始化时配置的凭据
+- Grafana 基础监控: http://localhost:3000/d/blog-overview
+- Prometheus: http://localhost:9090
 
 4. 查看日志
 
@@ -173,6 +179,8 @@ export DB_USER=root
 export DB_PASSWORD=123456
 export DB_NAME=blog_db
 export JWT_SECRET=your-secret-key
+export ADMIN_USERNAME=admin
+export ADMIN_PASSWORD=your-admin-password
 
 # 运行
 go run main.go
@@ -193,6 +201,10 @@ npm run dev
 ```
 
 前端将运行在 http://localhost:5173
+
+### 腾讯云生产部署
+
+生产环境使用主机 Nginx + Docker Compose + GHCR + GitHub Actions；配置、发布和回滚步骤见 [生产部署指南](deploy/README.md)。生产凭据仅放在服务器 `/opt/gin-react-blog/.env`，不提交到 Git。
 
 ---
 

@@ -1,13 +1,13 @@
 # 构建react应用
-FROM node:18-alpine as build-stage
+FROM node:22-alpine AS build-stage
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 COPY . .
 RUN npm run build
 
 # 使用nginx托管
-FROM nginx:alpine as production-stage
+FROM nginx:alpine AS production-stage
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 

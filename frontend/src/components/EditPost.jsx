@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { MdEditor } from 'md-editor-rt';
 import 'md-editor-rt/lib/style.css';
 import apiClient, { uploadImage } from '../api/client';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 
 const EditPost = () => {
   const { id } = useParams();

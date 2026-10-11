@@ -1,0 +1,110 @@
+name: gin-react-blog-prod
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+services:
+  db:
+    image: ${REGISTRY_PREFIX}-mysql:8.0
+    restart: unless-stopped
+    mem_limit: 512m
+    command: ["--innodb-buffer-pool-size=64M", "--performance-schema=OFF", "--max-connections=30", "--mysqlx=0"]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?required}
+      MYSQL_DATABASE: blog_db
+      MYSQL_USER: blog
+      MYSQL_PASSWORD: ${DB_PASSWORD:?required}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 5s
+      start_period: 30s
+      retries: 20
+    logging: *logging
+  backend:
+    image: ${REGISTRY_PREFIX}-backend:${RELEASE_SHA:?required}
+    restart: unless-stopped
+    mem_limit: 128m
+    environment:
+      GIN_MODE: release
+      GOMEMLIMIT: 96MiB
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: blog
+      DB_PASSWORD: ${DB_PASSWORD:?required}
+      DB_NAME: blog_db
+      JWT_SECRET: ${JWT_SECRET:?required}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?required}
+    volumes:
+      - ${DEPLOY_ROOT}/data/uploads:/root/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    logging: *logging
+  frontend:
+    image: ${REGISTRY_PREFIX}-frontend:${RELEASE_SHA:?required}
+    restart: unless-stopped
+    mem_limit: 64m
+    ports:
+      - "127.0.0.1:18080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    logging: *logging
+  prometheus:
+    image: ${REGISTRY_PREFIX}-prometheus:v3.15.0
+    profiles: [monitoring]
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      GOMEMLIMIT: 192MiB
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --storage.tsdb.retention.size=256MB
+      - --query.max-concurrency=4
+    volumes:
+      - ${DEPLOY_ROOT}/monitoring/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    logging: *logging
+  grafana:
+    image: ${REGISTRY_PREFIX}-grafana:13.2.3
+    profiles: [monitoring]
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      GOMEMLIMIT: 192MiB
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?required}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ${DEPLOY_ROOT}/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ${DEPLOY_ROOT}/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    logging: *logging
+volumes:
+  mysql_data:
+  prometheus_data:
+  grafana_data:

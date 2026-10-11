@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      build_only:
+        description: Build and publish images without production deployment
+        type: boolean
+        default: false
       export_bootstrap:
         description: Export full image bundle for first-time domestic transfer
         type: boolean
@@ -113,7 +117,7 @@ jobs:
           retention-days: 1
           compression-level: 0
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && !inputs.build_only
     needs: publish
     runs-on: ubuntu-latest
     environment: production

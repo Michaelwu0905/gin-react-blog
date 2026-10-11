@@ -110,6 +110,7 @@ jobs:
           missing=$(ssh "${ssh_options[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "images $GITHUB_SHA")
           mkdir images
           if [[ -n "$missing" ]]; then
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
             mapfile -t image_names <<< "$missing"
             for image in "${image_names[@]}"; do docker pull --platform linux/amd64 "$image"; done
             docker save "${image_names[@]}" > images/delivery.tar

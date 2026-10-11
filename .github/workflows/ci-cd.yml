@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      export_bootstrap:
+        description: Export full image bundle for first-time domestic transfer
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -80,7 +85,7 @@ jobs:
             fi
           done
       - name: Export bootstrap images for domestic transfer
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.export_bootstrap
         run: |
           set -Eeuo pipefail
           prefix=ghcr.io/michaelwu0905/gin-react-blog
@@ -88,7 +93,7 @@ jobs:
           for image in "${images[@]}"; do docker pull --platform linux/amd64 "$image"; done
           docker save "${images[@]}" | gzip -1 > bootstrap-images.tar.gz
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.export_bootstrap
         with:
           name: bootstrap-images
           path: bootstrap-images.tar.gz
